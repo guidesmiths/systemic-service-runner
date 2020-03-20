@@ -1,7 +1,7 @@
 var Systemic = require('systemic')
-var config = require('./components/config')
-var service = require('./components/service')
+var Config = require('./components/config')
+var Service = require('./components/service')
 
-module.exports = new Systemic()
-    .configure(config())
-    .add('service', service()).dependsOn('config')
+module.exports = Systemic()
+    .add('config', Config())
+    .add('service', Service()).dependsOn('config')

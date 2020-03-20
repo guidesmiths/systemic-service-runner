@@ -1,108 +1,92 @@
-var assert = require('assert')
-var runner = require('../index')
+const assert = require('assert')
+const runner = require('../index')
 
-describe('systemic service runner', function() {
+describe('systemic service runner', () => {
 
-    var system
-    var exit
+    let system
+    let exit
 
-    beforeEach(function() {
+    beforeEach(() => {
         system = createSystem()
         exit = process.exit
     })
 
-    afterEach(function() {
+    afterEach(() => {
         process.removeAllListeners()
         process.exit = exit
     })
 
-    it('should start a system', function(done) {
-        runner(system).start(function() {
+    it('should start a system', done => {
+        runner(system).start(() =>  {
             assert(system.started)
             done()
         })
     })
 
-    it('should stop a system', function(done) {
-        runner(system).stop(function() {
+    it('should stop a system', done => {
+        runner(system).stop(() => {
             assert(system.stopped)
             done()
         })
     })
 
-    it('should stop on unhandled error', function(done) {
-        process.exit = function(code) {
-            assert(system.stopped)
-            assert.equal(code, 1)
-            done()
-        }
-        var logger = {
-            error: function(message) {
-                assert.equal(message, 'Unhandled error. Invoking shutdown.')
-            }
-        }
-        runner(system, { logger: logger }).start(function() {
-            assert(system.started)
-            setTimeout(function() {
-                process.emit('error')
-            })
-        })
-    })
-
-    it('should stop on unhandled rejection', function(done) {
-        process.exit = function(code) {
+    it('should stop on unhandled error', done => {
+        process.exit = code => {
             assert(system.stopped)
             assert.equal(code, 1)
             done()
         }
-        var logger = {
-            error: function(message) {
-                assert.equal(message, 'Unhandled rejection. Invoking shutdown.')
-            }
+        const logger = {
+            error: message =>  assert.equal(message, 'Unhandled error. Invoking shutdown.')
         }
-        runner(system, { logger: logger }).start(function() {
+        runner(system, { logger }).start(() => {
             assert(system.started)
-            setTimeout(function() {
-                process.emit('unhandledRejection')
-            })
+            setTimeout(() => process.emit('error'))
         })
     })
 
-    it('should stop on SIGINT', function(done) {
-        process.exit = function(code) {
+    it('should stop on unhandled rejection', done => {
+        process.exit = code => {
+            assert(system.stopped)
+            assert.equal(code, 1)
+            done()
+        }
+        const logger = {
+            error: message => assert.equal(message, 'Unhandled rejection. Invoking shutdown.')
+        }
+        runner(system, { logger }).start(() => {
+            assert(system.started)
+            setTimeout(() => process.emit('unhandledRejection'))
+        })
+    })
+
+    it('should stop on SIGINT', done => {
+        process.exit = code => {
+            assert(system.stopped)
+            assert.equal(code, 0)
+            done()
+        }
+        const logger = {
+            info: message => assert.equal(message, 'Received SIGINT. Attempting to shutdown gracefully.')
+        }
+        runner(system, { logger }).start(() => {
+            assert(system.started)
+            setTimeout(() => process.emit('SIGINT'))
+        })
+    })
+
+    it('should stop on SIGTERM', done => {
+        process.exit = code => {
             assert(system.stopped)
             assert.equal(code, 0)
             done()
         }
         var logger = {
-            info: function(message) {
-                assert.equal(message, 'Received SIGINT. Attempting to shutdown gracefully.')
-            }
+            info: message => assert.equal(message, 'Received SIGTERM. Attempting to shutdown gracefully.')
         }
-        runner(system, { logger: logger }).start(function() {
+        runner(system, { logger }).start(() => {
             assert(system.started)
-            setTimeout(function() {
-                process.emit('SIGINT')
-            })
-        })
-    })
-
-    it('should stop on SIGTERM', function(done) {
-        process.exit = function(code) {
-            assert(system.stopped)
-            assert.equal(code, 0)
-            done()
-        }
-        var logger = {
-            info: function(message) {
-                assert.equal(message, 'Received SIGTERM. Attempting to shutdown gracefully.')
-            }
-        }
-        runner(system, { logger: logger }).start(function() {
-            assert(system.started)
-            setTimeout(function() {
-                process.emit('SIGTERM')
-            })
+            setTimeout(() => process.emit('SIGTERM'))
         })
     })
 

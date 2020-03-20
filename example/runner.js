@@ -1,14 +1,14 @@
-var system = require('./system')
-var runner = require('..')
+const System = require('./system')
+const runner = require('..')
 
-runner(system, {
+runner(System, {
     restart: {
         window: '5s'
     }
-}).start(function(err, components) {
+}).start((err, components) => {
     if (err) throw err
 
-    setInterval(function() {
+    setInterval(() => {
         process.emit('systemic_restart')
     }, 5000)
 })

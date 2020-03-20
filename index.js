@@ -1,54 +1,26 @@
-var merge = require('lodash.merge')
-var duration = require('parse-duration')
-var format = require('util').format
-var signals = ['SIGINT', 'SIGTERM']
+const duration = require('parse-duration')
+const format = require('util').format
+const signals = ['SIGINT', 'SIGTERM']
 
-module.exports = function(system, options) {
+module.exports = (system, options = {}) => {
 
     if (!system) throw new Error('system is required')
 
-    var config = merge({ restart: { window: '60s' }}, options)
-    var logger = options && options.logger || console
-    var timeout
+    const config = Object.assign({ restart: { window: '60s' }}, options)
+    const logger = options.logger || console
+    let timeout
 
-    function start(cb) {
-        system.start(function(err, components) {
+    const start = cb => {
+        system.start((err, components) => {
             if (err) return cb(err)
 
-            process.on('systemic_restart', scheduleRestart)
-
-            process.on('error', function(err){
-                logger.error('Unhandled error. Invoking shutdown.')
-                if (err) logger.error(err.stack)
-                system.stop(function() {
-                    process.exit(1)
-                })
-            })
-
-            process.on('unhandledRejection', function(err) {
-                logger.error('Unhandled rejection. Invoking shutdown.')
-                if (err) logger.error(err.stack)
-                system.stop(function() {
-                    process.exit(1)
-                })
-            })
-
-            signals.forEach(function(signal) {
-                process.on(signal, function() {
-                    logger.info(format('Received %s. Attempting to shutdown gracefully.', signal))
-                    system.stop(function() {
-                        process.exit(0)
-                    })
-                })
-            })
-
-            function scheduleRestart() {
+            const scheduleRestart = () => {
                 const delay = Math.ceil(Math.random() * duration(config.restart.window) / 1000) * 1000
                 logger.info(format('Service will restart in %s seconds.', delay / 1000))
 
                 clearTimeout(timeout)
-                timeout = setTimeout(function() {
-                    system.restart(function(err, components) {
+                timeout = setTimeout(() => {
+                    system.restart(err => {
                         if (err) {
                             logger.error('Error restarting system.')
                             logger.error(err)
@@ -58,17 +30,36 @@ module.exports = function(system, options) {
                 }, delay)
                 timeout.unref()
             }
+            
+            process.on('systemic_restart', scheduleRestart)
+
+            process.on('error', err => {
+                logger.error('Unhandled error. Invoking shutdown.')
+                if (err) logger.error(err.stack)
+                system.stop(() => process.exit(1))
+            })
+
+            process.on('unhandledRejection', err => {
+                logger.error('Unhandled rejection. Invoking shutdown.')
+                if (err) logger.error(err.stack)
+                system.stop(() => process.exit(1))
+            })
+
+            signals.forEach(signal => {
+                process.on(signal, () => {
+                    logger.info(format('Received %s. Attempting to shutdown gracefully.', signal))
+                    system.stop(() => process.exit(0))
+                })
+            })
 
             cb(null, components)
         })
     }
 
-    function stop(cb) {
-        system.stop(cb)
-    }
+    const stop  = cb => system.stop(cb) 
 
     return {
-        start: start,
-        stop: stop
+        start,
+        stop
     }
 }
